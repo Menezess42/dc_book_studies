@@ -25,15 +25,6 @@
 					python311Packages.jupyterlab
 					python311Packages.pytorch
 					python311Packages.ipython
-# Emacs pyIDE libs
-				python311Packages.jedi
-				python311Packages.black
-				python311Packages.flake8
-				python311Packages.sentinel
-				python311Packages.python-lsp-server
-				python311Packages.virtualenv
-				python311Packages.pyflakes  # Linter Pyflakes
-				direnv
 				];
 			};
 	};
