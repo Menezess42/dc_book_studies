@@ -1,10 +1,11 @@
-from typing import List
-from num_friends import num_friends
-from collections import Counter
 import sys
 import os
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+from typing import List
+from data import num_friends, daily_minutes, daily_hours
+from collections import Counter
 from chapter4_Algebra_Linear.vetores import Vetores
+
 
 
 class TendenciasCentrais:
@@ -110,6 +111,57 @@ class Dispersao:
         return tc.quantile(xs, 0.75) - tc.quantile(xs, 0.25)
 
 
+class Correlacao:
+    """Segundo o vice-presidente de Crescimento da DS ele acredita que existe
+    uma corelação enter o tempo que os usuários ficam online com a quantidade de
+    amigos, vamos analisar isso"""
+
+    # Primeiro, analisaremos a covariância, um tipo de variância aplicada
+    # a pares. Se a variancia mede o desvio de uma variável de média, a
+    # covariância mede a varaiação simultânea de duas variáveis em relação
+    # às suas médias.
+    def covariance(self, xs: List[float], ys: List[float]) -> float:
+        assert len(xs) == len(ys), "xs and ys must have the same size"
+        dispersao = Dispersao()
+        v = Vetores()
+        return v.dot(v=dispersao.de_mean(xs), w=dispersao.de_mean(ys))/(len(xs)-1)
+    # > Lembrete: O dot soma os produtos dos pares de elementos correspondentes.
+    # > Quando os elementos correspondentes de X e Y estão acima ou abaixo das
+    # > suas médias, um número positivo entra na soma. Quando um valor está acima
+    # > de sua média e o outro está abaixo, um número negativo entra na soma. Logo,
+    # > uma covariância positiva 'alta' indica que x tende a ser alto quando y é alto,
+    # > e baixo quando y baixo.
+    # > Uma covariância negativa 'alta' indica o oposto -- que x tende a ser baixo quando
+    # > y é alto e vice-versa. Uma covariância próxima de zero indica que essa relação
+    # > não existe.
+    # Mesmo assim, pode ser difícil interpretar essse número por dois motivos:
+    # 1⁰ -> Suas unidades são o produto das unidades das entradas (exemplo,
+    # amigos*daily_minutes -> amigos-minuts-por-dia), o que talvez seja difícil
+    # de entender.
+    # 2⁰ -> Se cada usuário tivesse o dobro de amigos (mas o mesmo número de minutos),
+    # a covariância seria duas vezes maior. porém, na prática, as variáveis estariam
+    # tão inter-relacionadas quanto antes. Em outras palavras, é difícil definir uma
+    # covariância 'alta'.
+
+    # Por isso, é mais comum calcular a correlação, que divide os desvios-padrão das duas
+    # variáveis.
+    def correlation(self, xs: List[float], ys: List[float]) -> float:
+        """Mede a variação simultânea de xs e ys a partir da suas médias"""
+        disp = Dispersao()
+        stdev_x = disp.standard_deviation(xs)
+        stdev_y = disp.standard_deviation(ys)
+        if stdev_x > 0 and stdev_y > 0:
+            return self.covariance(xs, ys)/stdev_x / stdev_y
+        else:
+            return 0
+
+    # A correlation nã tem unidade e sempre fica entre -1 (anticorrelação perfeita)
+    # e 1 (correlação perfeita).
+
+
+
+        
+
 if __name__ == "__main__":
     tend_central = TendenciasCentrais()
     median_odd = tend_central.median([1, 10, 2, 9, 5])
@@ -133,3 +185,10 @@ if __name__ == "__main__":
     assert 9.02 < standard_deviaiton < 9.04
     interquartile = dispersao.interquartile_range(num_friends)
     assert interquartile == 6
+    cr = Correlacao()
+    assert 22.42 < cr.covariance(num_friends, daily_minutes) < 22.43
+    assert 22.42/60 < cr.covariance(num_friends, daily_hours) < 22.43/60
+    assert 0.24 < cr.correlation(num_friends, daily_minutes) < 0.25
+    assert 0.24 < cr.correlation(num_friends, daily_hours) < 0.25
+
+

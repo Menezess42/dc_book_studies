@@ -57,8 +57,7 @@ class Vetores:
         assert all(len(v) == num_elements for v in vectors), "Different sizes"
 
         # O elemento de n⁰ i do resultado é a soma de todo vector[i]
-        return [sum(vector[i] for vector in vectors)
-                for i in range(num_elements)]
+        return [sum(vector[i] for vector in vectors) for i in range(num_elements)]
 
     def scalar_multply(self, c: float, v: Vector) -> Vector:
         """Também multiplicamos um vetor por um escalar: pra isso, basta
@@ -70,7 +69,7 @@ class Vetores:
     def vector_mean(self, vectors: List[Vector]) -> Vector:
         """computa a média dos elementos"""
         n = len(vectors)
-        return self.scalar_multply(1/n, self.vector_sum(vectors))
+        return self.scalar_multply(1 / n, self.vector_sum(vectors))
 
     def dot(self, v: Vector, w: Vector) -> float:
         """Uma ferramenta menos conhecida é o produto escalar
@@ -131,7 +130,7 @@ if __name__ == "__main__":
     assert vector_sum == [16, 20]
     scalar_multiply = vetor.scalar_multply(2, [1, 2, 3])
     assert scalar_multiply == [2, 4, 6]
-    vector_mean = vetor.vector_mean([[1, 2],  [3, 4],  [5, 6]])
+    vector_mean = vetor.vector_mean([[1, 2], [3, 4], [5, 6]])
     assert vector_mean == [3, 4]
     dot_product = vetor.dot([1, 2, 3], [4, 5, 6])
     assert dot_product == 32  # 1*4+2*5+3*6
