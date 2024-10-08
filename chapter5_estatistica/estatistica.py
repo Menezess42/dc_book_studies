@@ -1,6 +1,10 @@
 from typing import List
 from num_friends import num_friends
 from collections import Counter
+import sys
+import os
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+from chapter4_Algebra_Linear.vetores import Vetores
 
 
 class TendenciasCentrais:
@@ -53,6 +57,58 @@ class TendenciasCentrais:
         max_count = max(counts.values())
         return [x_i for x_i, count in counts.items() if count == max_count]
 
+class Dispersao:
+    """
+    A dispersão expressa a medidad da distribuição dos dados. Aqui, em geral,
+    os valores próximos de 0 indicam que os dados não estão espalhados e os
+    valores maiores (ou algo assim) indicam dados muito espalhados.
+    """
+    # como o termpo "range" já tem um significado no python, usaremos outro nome
+    def data_range(self, xs: List[float]) -> float:
+        return max(xs)-min(xs)
+
+    # A amplitude é igual a zero se os valores max e min são iguais == dados não dispersos.
+    # Por outro lado se a amplitude é maior, significa que os dados estão bem dispersos.
+    # Como a mediana a AMPLITUDE não depende do conjunto de dados como um todo, e sim só
+    # mente dos dados Max e Min, o que significa que se um conjunto vai de 0 a 100 mas todos
+    # os valores no meio são 5 ou se o conjunto vai de 0 a 100 mas os valores no meio são todos
+    # 50, ambos os conjuntos terão a mesma amplitude.
+
+    # Uma medidad de dispersão maix complexa é a VARIANCIA
+    def de_mean(self, xs: List[float]) -> List[float]:
+        """Traduza xs subtraindo sua média (self,para que o resultado tenha meia 0)"""
+        tc = TendenciasCentrais()
+        x_bar = tc.mean(xs)
+        return [x - x_bar for x in xs]
+
+    def variance(self, xs: List[float]) -> float:
+        """Quase o desvio quadrado médio da média"""
+        n = len(xs)
+        assert n >= 2, "variance requires at least two elements"
+        deviations = self.de_mean(xs)
+        vetores = Vetores()
+        return vetores.sum_of_squares(deviations)/(n-1)
+
+    # Desvio padrão
+    def standard_deviation(self, xs: List[float]) -> float:
+        import math
+        """O desvio-padrão é a raiz quadrada da variância, ou seja,
+        ela é a variancia mas retirando o quadrado da medida. Tipo se
+        os dados estão em metros(m) o resultado da variancia seria m²
+        e o resultado do desvio-padrão é m. Mas ambos mostram a mesma coisa,
+        a dispersão dos dados em relação ao ponto médio.
+        """
+        return math.sqrt(self.variance(xs))
+
+    # O problema da média com os outliers também atinge a amplitude e
+    # o desvio-padrão, Os outliers ditam os dados.
+    # Uma alternativa mais eficiente computa a diferença entre vaolr do 75⁰ percentil
+    # e o valor do 25⁰ percentil.
+    def interquartile_range(self, xs: List[float]) -> float:
+        """Retorna a diferença entre o percentil 75% e o percentil 25%"""
+        tc = TendenciasCentrais()
+        return tc.quantile(xs, 0.75) - tc.quantile(xs, 0.25)
+
 
 if __name__ == "__main__":
     tend_central = TendenciasCentrais()
@@ -68,3 +124,12 @@ if __name__ == "__main__":
     assert quantil(num_friends, 0.90) == 13
     moda = tend_central.moda
     assert set(moda(num_friends)) == {1, 6}
+    dispersao = Dispersao()
+    data_range = dispersao.data_range(num_friends)
+    assert data_range == 99
+    variance = dispersao.variance(num_friends)
+    assert 81.54 < variance < 81.55
+    standard_deviaiton = dispersao.standard_deviation(num_friends)
+    assert 9.02 < standard_deviaiton < 9.04
+    interquartile = dispersao.interquartile_range(num_friends)
+    assert interquartile == 6
