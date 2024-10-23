@@ -21,6 +21,7 @@
 # normal
 import sys
 import os
+
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 from typing import Tuple
 import math
@@ -98,6 +99,45 @@ def normal_two_sided_bounds(
     return lower_bound, upper_bound
 
 
+#### P-Values
+# No teste anterior, também podemos aplicar os p-values. Em vez de escolher
+# limites com base eum um limiar de probabilidade, é possível
+# computar a probabilidade -- com base na premissa de que h0 é verdadeiro --
+# de observar um valor pelo menos tão extremo quanto o que já observamos
+# Computamos o teste bilateral da honestidade da moeda da seguinte forma:
+def two_sided_p_value(x: float, mu: float = 0, sigma: float = 1) -> float:
+    """
+    Qual é a probabilidade de observar um valor pelo menos tão extremo
+    quanto x (em qualquer direção) se os valores vêm de um N(mu, sigma)?
+    """
+    if x >= mu:
+        # x é maior que a média, então a coroa é qualquer valor maior que x
+        return 2 * normal_probability_above(x, mu, sigma)
+
+    # x é menor que a média, então a coroa é qualquer valor menor que x
+    return 2 * normal_probability_below(x, mu, sigma)
+
+
+# Para que a sensibilidade dessa estimativa fique clara, vamos a uma simulação:
+def p_value_simulation():
+    import random
+
+    extreme_value_count = 0
+    for _ in range(1000):
+        num_heads = sum(
+            1 if random.random() < 0.5 else 0  # Conte o n⁰ de caras
+            for _ in range(1000)
+        )  # em mil lançamentos,
+        # e conte as vezes em que
+        # o n⁰ é 'extremo'
+
+        if num_heads >= 530 or num_heads <= 470:
+            extreme_value_count += 1
+
+    # O p-value era 0.062 => ~62 valores extremos em 1000
+    assert 59 < extreme_value_count < 65, f"{extreme_value_count}"
+
+
 if __name__ == "__main__":
     # Digamos que a moeda será lançada n=mil vezes.
     # Se a hipótese de honestidade estiver correta,
@@ -133,14 +173,16 @@ if __name__ == "__main__":
     print(f"limites de 95% baseados na premissa de que p=0.5\n\tlo:{lo}\n\thi:{hi}")
 
     # mu e sigma reais baseados em p=0.55
-    mu_1, sigma_1 = normal_approximation_to_binomial(1000,0.55)
+    mu_1, sigma_1 = normal_approximation_to_binomial(1000, 0.55)
     print(f"mu e sigma reais baseados em p=0.55\n\tmu_1:{mu_1}\n\tsigma_1:{sigma_1}")
 
     # Um erro tipo 2 ocorre quando falhamos em rejeitar a hipótese nula, o que ocorre
     # quando X ainda está no intervalo original
     type_2_probability = normal_probability_between(lo, hi, mu_1, sigma_1)
-    print(f" Um erro tipo 2 ocorre quando falhamos em rejeitar a hipótese nula, o que ocorre quando X ainda está no intervalo original\n\tType_2_probability:{type_2_probability} ")
-    power = 1 - type_2_probability # 0.887
+    print(
+        f" Um erro tipo 2 ocorre quando falhamos em rejeitar a hipótese nula, o que ocorre quando X ainda está no intervalo original\n\tType_2_probability:{type_2_probability} "
+    )
+    power = 1 - type_2_probability  # 0.887
     print(f"Power of type_2 in %:\n\tPower:{power}")
 
     # Agora imagine que a hipótese nula indica que a moeda não está viciada em cara,
@@ -152,13 +194,22 @@ if __name__ == "__main__":
     hi = normal_upper_bound(0.95, mu_0, sigma_0)
     # é 526 (<531, já que precisamos de mais probabilidade no ponto superior)
     type_2_probability = normal_probability_below(hi, mu_1, sigma_1)
-    power = 1 - type_2_probability # 0.936
+    power = 1 - type_2_probability  # 0.936
     print(f"Power of type_2 in %:\n\tPower:{power}")
 
     # Esse teste tem uma potência maior, pois não recusa mais a h0 quando X é
     # menor do que 469 (algo muito improvável de acontecer se h1 for verdadeiro);
     # em vez disso, ele recusa a h0 quando X está entre 526 e 531 (algo provável
     # de acontecer se h1 for verdadeiro).
+
+    # Computamos a observação de 530 caras da seguinte forma:
+    tw_sided_p_value = two_sided_p_value(529.5, mu_0, sigma_0)  # 0.062
+    print(tw_sided_p_value)
+    p_value_simulation()
+    # Como o p-value é maior que a significância de 5% não recusamos a hípotese
+    # nula. Se observamos 532 caras, então o p-value é:
+    print(two_sided_p_value(531.5, mu_0, sigma_0))
+
 #
 #
 #
