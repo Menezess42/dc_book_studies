@@ -138,6 +138,41 @@ def p_value_simulation():
     assert 59 < extreme_value_count < 65, f"{extreme_value_count}"
 
 
+### Intervalo de confiança
+def trust_inverval():
+    """
+    Podemos estimar a probabilidade de uma moeda viciada ao analisar
+    o valor médio das variáveis de Bernouli correspondentes a cada lançamento
+    -- 1 para cara, 0 para coroa. Se observarmos 525 caras em 1000 lançamentos,
+    então estimamos p=0.525.
+    Qual o é o nosso nível de confiança nessa estimativa ? Bem, quando sabemos o valor
+    exato de p, segundo o teorema do limite central, a média das variáveis Bernouli
+    deve ser aproximadamente normal, com média p eo seguinte desvio-padrão:
+    math.sqrt(p*(1-p) / 1000)
+    """
+    # Aqui, como não sabemso o valor de p, usamos nossa estimativa
+    p_hat = 525/1000
+    mu=p_hat
+    sigma = math.sqrt(p_hat*(1-p_hat)/1000) # 0.0158
+    print(f"p_hat: {p_hat}\nmu: {mu}\nsigma: {sigma}")
+    # Embora esse método não seja totalmente seguro, as pessoas costumam fazer isso.
+    # Aplicando a aproximação normal concluimos que temos um "nível de confiança de 95%"
+    # na afirmação de que o seguinte intervalo contém o parâmetro verdadeiro p
+    a = normal_two_sided_bounds(0.95, mu, sigma) # [0.4940, 0.5560]
+    print(f"{a}")
+
+    # Logo, não determinamos que a moeda é viciada, já que 0.5 está dentro do intervalo de confiança.
+    # Se tivéssemos observado 540 caras, a situação seria:
+    p_hat = 540/1000
+    mu = p_hat
+    sigma =math.sqrt(p_hat * (1-p_hat)/1000) # 0.0158
+    normal_two_sided_bounds(0.95, mu, sigma) # [0.5091, 0.5709]
+
+    # Aqui, a "moeda honesta" não está no intervalo de confiança. (A hipótese da "meoda honesta"
+    #                                                              não é verdadeira por que não
+    #                                                              pasa no teste aplicado em 95% das vezes)
+
+    
 if __name__ == "__main__":
     # Digamos que a moeda será lançada n=mil vezes.
     # Se a hipótese de honestidade estiver correta,
@@ -209,6 +244,7 @@ if __name__ == "__main__":
     # Como o p-value é maior que a significância de 5% não recusamos a hípotese
     # nula. Se observamos 532 caras, então o p-value é:
     print(two_sided_p_value(531.5, mu_0, sigma_0))
+    trust_inverval()
 
 #
 #
