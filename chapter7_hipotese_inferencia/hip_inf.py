@@ -12,8 +12,7 @@
 # EXEMPLO LANÇAMENTO DA MOEDA
 # Queremos testar a honestidade de uma moeda. Partimos da premissa
 # de que a moeda tem a probabilidade p de dar cara; então, a hipótese
-# nula é de que a moeda seja honesta -- ou seja, de que p=0.5. Testaremos
-# essa premissa em comparação com hipótese alternativa p!=0.5.
+# nula é de que a moeda seja honesta -- ou seja, de que p=0.5. Testaremos # essa premissa em comparação com hipótese alternativa p!=0.5.
 
 # Especificamente, o teste consistirá em n lançamentos da moeda e na contagem do
 # número de X de caras. Cada lançamento da moeda é um ensaio de Bernouli, ou seja,
@@ -172,7 +171,125 @@ def trust_inverval():
     #                                                              não é verdadeira por que não
     #                                                              pasa no teste aplicado em 95% das vezes)
 
-    
+## P-hacking
+# O procedimento que rejeita erroneamente a hipótese nula em apenas 5% das vezes - por extensão -
+# rejeitrá erronemanete a hipótese nula em 5% das vezes:
+from typing import List
+import random
+def run_experiment() -> List[bool]:
+    """Lança uma moeda honesta mil vezes, True = heads, False = tails"""
+    return [random.random() < 0.5 for _ in range(1000)]
+
+def reject_fairness(experiment: List[bool]) -> bool:
+    """Usando os níveis de significância de 5%"""
+    num_heads = len([flip for flip in experiment if flip])
+    return num_heads <469 or num_heads>531
+
+def test_p_hacking():
+    random.seed(0)
+    experiments = [run_experiment() for _ in range(1000)]
+    num_rejections = len([experiment
+                          for experiment in experiments
+                          if reject_fairness(experiment)])
+    print(num_rejections)
+    assert num_rejections == 46
+
+
+### Test A/B
+# Decidir sobre o anúncio A e o anúncio B.
+# Por ser um ciêntista de dados vocÊ decide executar um experimento que consiste em exibir
+# aleatoriamente um dos anúncios e contar quantos visitantes do ssitema clicam neles.
+# Se 990 de mil visualizadores clicarem no anúncio A e só 10 de mil visualizadores clicarem no B,
+# você pode afirmar com confiança que A é melhor do que B.
+# Mas se as diferenças não forem tão acentuadas, nesse caso, aplique a inferência estatistica.
+
+# Digamos que Na são as pessoas que visualizam o anúncio A e que na são as que clicam nele.
+# Podemos pensar em cada visualização como um ensaio de Bernouli em que PA é a probabilidade
+# de alguém clicar no anúnico A. Então (se Na for grande, o que é o caso aqui), sabemos que
+# na/Na é, aproximadamente, uma variável aleatória normal com média PA e dsevio padrão sigma=sqrt(Pa(1-Pa)/Na)
+# Da mesma forma isso ocorre para B.
+
+# No código, expressamos isso da seguinte forma:
+def estimated_parameters(N: int, n: int) -> Tuple[float, float]:
+    p = n/N
+    sigma = math.sqrt(p*(1-p)/N)
+    return p, sigma
+# Se partirmos da premissa de que as duas normais são independentes, então sua diferença também deve
+# ser normal com a média PB-PA e o desvio-padrão sqrt(sigmaa² + sigmab²)
+
+# Logo podemos testar a hipótese nula de que PA e PB são iguais aplicando a estatística:
+def a_b_test_statisc(N_A: int, n_A: int, N_B: int, n_B: int) -> float:
+    P_A, sigma_A = estimated_parameters(N_A, n_A)
+    P_B, sigma_B = estimated_parameters(N_B, n_B)
+    return (P_B - P_A) / math.sqrt(sigma_A**2 + sigma_B**2)
+# Esse valor será aproximadamente uma normal padrão.
+
+# Por exemplo se A recebe 200 cliques em mil visualizações e B recebe 180 cliques em mil visualizações,
+# então a estatística é:
+def z_for_A200_B180():
+    z = a_b_test_statisc(1000, 200, 1000, 180)
+    print(f"z:{z} para A 200 em mil e B 180 em mil")
+    # A probabilidade de observar essa grande diferença se a média for igual será
+    var = two_sided_p_value(z)
+    print(f"Prob. d observar essa grande diferenaca se a média for igual será {var}")
+
+# Esse valor é tão grande que não podemos definir se há alguma diferença. Por outro lado, se B
+# receber somente 150 cliques, temos que:
+def z_for_A200_B150():
+    z = a_b_test_statisc(1000, 200, 1000, 150)
+    print(f"z:{z} para A 200 em mil e B 150 em mil")
+    # A probabilidade de observar essa grande diferença se a média for igual será
+    var = two_sided_p_value(z)
+    print(f"Prob. d observar essa grande diferenaca se a média for igual será {var}")
+    # isso indica que há somente uma probabilidade de 0.003 de observar essa grande diferença
+    # se os anúncios forem igualmente eficazes.
+
+### Inferencia Bayesiana
+# Os procedimentos que vimos até aqui consistem em fazer declarações de probabilidade
+# sobre os testes. Exemplo "Há apenas uma probabilidade de 3% de observar uma estatística tão
+# extrma se a hipótese nula for verdadeira"
+# Uma abordagem alternativa à iferência é tratar os parâmetros desconhecidos como variáveis
+# aleatŕoias. O analista parte de uma distribuição anterior para definir os parâmetros
+# e usa os dados observados e o teorema de Bayes para atualizar a distribuição posterior desses
+# parâmetros. Em vez de mitir declarações de probabilidade sobre os testes, avaliamos a probabilidade
+# dos parâmetros.
+
+# Exemplo, quando o parâmetro desconhecido é uma probabilidade (como no exemplo da moeda), costumamos
+# usar uma anterior baseada na distribuição Beta, que coloca todas as probabilidades entre 0 e 1:
+def B(alpha: float, beta: float) -> float:
+    """Uma constante normalizadora para a qual a probabilidade total é 1"""
+    return math.gamma(alpha)*math.gamma(beta) / math.gamma(alpha+beta)
+
+def beta_pdf(x: float, alpha: float, beta: float) -> float:
+    if x<=0 or x>=1: # nenhum peso foda de [0,1]
+        return 0
+    return x**(alpha-1)*(1-x)**(beta-1)/B(alpha, beta)
+# em geral, essa distribuição centraliza seu peso em:
+# alpha / (alpha + beta)
+# E, quando maiores forem alpha e beta, mais "estreita" será a distribuição.
+# Por exemplo, se alpha e beta são iguais a 1, a dstribução é uniforme (centrada em 0.5,
+# ela será muito dispersa). Se alpha é muito maior do que beta, a maoir parte do peso fica perto de 1.
+# E, se se alpha for muito menor do que beta, a maior parte do peso fica perto de 0.
+# Imagine que partimos de uma distribuição anterior em p. Talvez não seja o caso de afirmar que a moeda
+# é honesta; então, definimos alpha e beta como iguais a 1. Ou talvez haja uma forte convicção de que a moeda
+# dá cara em 55% das vezes; nesse caso, definimos alpha como 55 e beta como 45.
+# Em seguida, lançamos a moeda várias vezes e observamos h caras e t coroas. Segundo o teorema de Bayes, a
+# distribuição posterior de p é, novamente, uma distribuição Beta, mas com os parâmetors alpha + h e bet + t.
+# Imagine que a moeda é lançada 10 vezes, dando 3 caras. Se você partiu de uma anterior uniforme (o que
+# equivale a não afirmar nada sobre a honestidade da moeda), a distribuição posterior é uma Beta(4, 8), centrada
+# perto de 0.33. Como todas as probabilidades foram igualadas, seu palpite está bem perto da probabilidade observada.
+# Se você partir de um Beta(20,20)(por acreditar que a moeda era razoavelmente honesta), a distribuição posterior
+# é um Beta(23,27). Centrada perto de 0.46.
+# À medida que lançamos a moeda mais vezes, a anterior vai perdendo a importância até que, eventualmente, temos (quase)
+# a mesma distribuição posterior, seja qual tenha sido a anterior inicial.
+# O mais interesante nisso tudo é a possibilidade de fazer declarações de probabilidade sobre hipóteses: "Como base
+# na anterior e nos dados observados, há uma chance de apenas 5% de a probabilidade da moeda dar cara estar entre 49%
+# e 51%". Filosoficamente, isso é muito diferente de uma declaração do tipo "Se a moeda for honesta, devmos observar
+# dados muito extremos em apenas 5% das vezes".
+# Há uma certa controvérsia em torno da aplicação da inferência Bayesiana no teste de hipóteses - em parte, porque os
+# cálculos às vezes são complexos, mas também devido à escolha subjetiva da anterior.
+
+
 if __name__ == "__main__":
     # Digamos que a moeda será lançada n=mil vezes.
     # Se a hipótese de honestidade estiver correta,
@@ -245,7 +362,9 @@ if __name__ == "__main__":
     # nula. Se observamos 532 caras, então o p-value é:
     print(two_sided_p_value(531.5, mu_0, sigma_0))
     trust_inverval()
-
+    test_p_hacking()
+    z_for_A200_B180()
+    z_for_A200_B150()
 #
 #
 #
