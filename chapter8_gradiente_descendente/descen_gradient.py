@@ -86,6 +86,13 @@ def estimate_gradient(f: Callable[[Vetores.Vector], float], v: Vetores.Vector, h
 # avaliar f em 2n entradas. Nesse esquema, estimar uma série de gradientes dá muito trabalho.
 # Por isso, sempre realizaremos operações matemáticas para calcular as funções de gradiente.
 
+### Usando o Gradiente
+# Usaremos os gradientes para encontrar o mínimo entre os vetores tridimencionais.
+# Selecionaremos um ponto de partida aleatório e daremos pequenos passos na direção oposta
+# a do gradiente até atingir um ponto em que ele seja muito pequeno
+import random
+from chap
+
 if __name__=="__main__":
     estimar_derivadas()
 
