@@ -15,6 +15,9 @@
 			{
 				nativeBuildInputs = with pkgs; [
 					python311
+          python311Packages.beautifulsoup4
+          python311Packages.html5lib
+          python311Packages.requests
 					python311Packages.pip
 					python311Packages.tensorflow
 					python311Packages.numpy
