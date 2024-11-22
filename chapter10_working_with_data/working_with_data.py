@@ -165,6 +165,209 @@ plt.show()
 # pode passar horas mexendo no matplotlib para exibir as coisas do jeito especifico,
 # mas isso não é muito rápido)
 
+##NamedTuples
+# Uma forma comum de representar os dados é com os dicts:
+import datetime
+# stock_price = {
+# 'closing_price': 102.06,
+# 'date': datetime.date(2014,8,29),
+# 'symbol': 'AAPL'
+#}
+
+# No entanto há varios motivos para não fazer isso.
+# Essa é uma representação ligeiramente ineficaz (um dict semrpe causa alguma sobrecarga)
+# Se você tiver muitos preços de ação eles ocuparão mais memória.
+# O maior problema é que acessar itens pela chave do dict tem grande propensão a erros
+
+# Como alternativa, o python tem a classe namedtuple, parecida com uma tuple, mas com slots nomeados:
+from collections import namedtuple
+stockPrice = namedtuple('StockPrice', ['symbol', 'date', 'closing_price'])
+price = stockPrice('MSFT', datetime.date(2018,12,14), 106.03)
+
+assert price.symbol == 'MSFT'
+assert price.closing_price == 106.03
+
+# Como as tuples regulares, as namedtuples são imutáveis, ou seja, você não pode
+# modificar seus valores depois de criá-los. Vez ou outra, isso atrapalhará, mas, no geral, é uma boa propriedade.
+# Observe que ainda não resolvemos o problema da anotação de tipo. Para isso, usamos a variante tipada
+# NamedTuple
+from typing import NamedTuple
+
+class StockPrice(NamedTuple):
+    symbol: str
+    date: datetime.date
+    closing_price: float
+
+    def is_high_tech(self) -> float:
+        """Como é uma classe, também podemos adicionar métodos"""
+        return self.symbol in ['MSFT', 'GOOG', 'FB', 'AMZN', 'AAPL']
+
+price = StockPrice('MSFT', datetime.date(2018,12,14), 106.03)
+
+assert price.symbol == 'MSFT'
+assert price.closing_price == 106.03
+assert price.is_high_tech()
+# Nota do autor:
+#> Bem pouca gente usa NamedTuple dessa forma, mas todos deveriam
+
+
+## Dataclasses
+# São (mais ou menos) uam versão mutável da NamedTuple. "mais ou menos" porque a NamedTuple
+# representa seus dados compactamente como tuplas, mas as dataclasses são apenas classes regulares
+# do python que geram alguns métodos automaticamente).
+# A syntax é bem parecida com a NamedTuple. No entanto, em vez de herdar de uma classe, usamos
+# um decorador
+from dataclasses import dataclass
+
+@dataclass
+class StockPrice2:
+    symbol: str
+    date: datetime.date
+    closing_price: float
+    def is_high_tech(self) -> float:
+        """Como é uma classe, também podemos adicionar métodos"""
+        return self.symbol in ['MSFT', 'GOOG', 'FB', 'AMZN', 'AAPL']
+
+price2 = StockPrice2('MSFT', datetime.date(2018, 12, 14), 106.03)
+assert price2.symbol=='MSFT'
+assert price2.closing_price==106.03
+assert price2.is_high_tech()
+
+# omo vimos antes, aqui, a grande diferença é a possibilidade de modificar os valores
+# de uma instância da dataclass:
+# divide as ações
+price2.closing_price /=2
+print(price2.closing_price)
+assert price2.closing_price == 53.015
+
+# Isso também nos deixa suscetíveis aos erros que queremos evitar quando não usamos os dicts:
+
+# como esse é uma classe regular, adicione os novos campos da forma como quiser:
+price2.closing_price = 75 # oops kkkk
+
+#> Não usaremos dataclass, mas talvez você se depare com elas na selva do mundo real.
+
+## Limpando e Estruturando
+# Anteriormente, fiezemos isso antes de usar os dados
+#closing_price = float(row[2])
+
+# Entretanto, é possível reduzir a propensão a erros se a análise for feita em uma função
+# testável
+from dateutil.parser import parse
+
+def parse_row(row: List[str]) -> StockPrice:
+    symbol, date, closing_price = row
+    return StockPrice(symbol=symbol,
+                      date=parse(date).date(),
+                      closing_price=float(closing_price))
+
+# Agora, teste a função
+stock = parse_row(['MSFT', '2018-12-14', '106.03'])
+
+assert stock.symbol == 'MSFT'
+assert stock.date == datetime.date(2018,12,14)
+assert stock.closing_price == 106.03
+
+# E se houver dados inválidos ? Um valor 'float' que não representa nenhum número?
+# Vocẽ prefere receber um None a causar uma falha no programa ?
+
+from typing import Optional
+import re
+
+def try_parse_row(row: List[str]) -> Optional[StockPrice]:
+    symbol, date_, closing_price_ = row
+    # Os simbolos das ações devem estar em letras maiúsculas
+    if not re.match(r'^[A-Z]+$', symbol):
+        return None
+    try:
+        date = parse(date_).date()
+    except ValueError:
+        return None
+    try:
+        closing_price = float(closing_price_)
+    except ValueError:
+        return None
+
+    return StockPrice(symbol, date, closing_price)
+
+# Dve retornar None em caso de erros
+assert try_parse_row(['MSFT0','2018-12-14', '106.03']) is None
+assert try_parse_row(['MSFT','2018-12--14', '106.03']) is None
+assert try_parse_row(['MSFT','2018-12-14', 'x']) is None
+
+# Mas deve retornar o mesmo que antes se os dados forem válidos
+assert try_parse_row(['MSFT', '2018-12-14', '106.03']) == stock
+
+# Por exemplo, quando temos preços de ações delimitados por vírgulas
+# dados inválidos:
+# AAPL,6/20/2014,90.91
+# MSFT,6/20/2014,41.68
+# FB,6/20/3014,64.5
+# AAPL,6/19/2014,91.86
+# MSFT,6/19/2014,n/a
+# FB,6/19/2014,64.34
+
+# Agora, podemos ler e retronar apenas as linhas válidas:
+import csv
+data: List[StockPrice] = []
+
+with open('comma_delimited_stock_prices.csv') as f:
+    reader = csv.reader(f)
+    for row in reader:
+        maybe_stock = try_parse_row(row)
+        if maybe_stock is None:
+            print(f"skipping invalid row: {row}")
+        else:
+            data.append(maybe_stock)
+
+# Dados inválidos:
+# De modo geral, as três opções:
+# -são eliminá-las.
+# - vloltar à fonte para tentar corrigir os dados inválidos/ausentes ou
+# - não fazer nada e confiar na sorte.
+# Uma linha errada em meio a milhoẽos, supostamente não faz diferença, e ignora-la não faz mal.
+# Mas se metade das linhas estão inválidas, você deve voltar a fonte e corrigir.
+
+# um bom próximo passo é procurar outliers usando as técnicas indicadas na seção "explorando os dados"
+# ou investigações ad hoc. Por exemplo, você observou que uma das datas no arquivo de ações trazia
+# o ano 3014? Isso não gerará (necessariamente) um erro, mas está totalmente errado,
+# e seus resultados serão malucos se a dta naõ for ajustada.
+
+## Manipulando os dados
+# Uma das habilidades mais importantes do cientista de dados é saber como manipular dados.
+# Porém, como se trata mais de uma abordagem geral do que de uma técnica específica,
+# analisaremos somenta alguns exemplos:
+# Imagine um monte de dados sobre preços de ações parecidos com estes:
+# data = [StockPrice(symbol='MSFT',date=datetime.data(2018,12,24), closing_price=106.03),
+#         #...
+#         ]
+
+# Faremos PERGUNTAS sobre esses dados. Ao longo do caminho, tentaremos IDENTIFICAR PADRÕES
+# e abstrair ferramentas para facilitar a manipulação.
+
+# Por exemplo, imagine que queremos determinar o maior preço de fechamento da AAPL.
+# Vamos FAZER isso em ETAPAS CONCRETAS:
+# 1. Selecione apenas as linhas AAPL;
+# 2. Selecione o closing_price de cada linha;
+# 3. Calcule o max desses preços;
+
+# Podemos executar as três etapas ao mesmo tempo usando uma compreensão:
+max_aapl_price = max(stock_price.closing_price for stock_price in data if stock_price.symbol == 'AAPL')
+print(max_aapl_price)
+
+# De modo geral, queremos determinar o maior preço de fechamento de cada ação no conjunto de dados. Podemos fazer o seguinte:
+# 1. crie um dcit para controlar os preços mais altos (usaremos um defaultdict que retorna menos infinito para valores ausentes, pois todos os preços serão maiores que esse valor);
+# 2. Itere nos dados, fazendo sua atualização
+
+from collections import defaultdict
+max_price: Dict[str, float] = defaultdict(lambda: float('-inf'))
+
+for sp in data:
+    symbol, closing_price = sp.symbol, sp.closing_price
+    if closing_price > max_price[symbol]:
+        max_price[symbol] = closing_price
+
+print(max_price)
 
 
 if __name__ == "__main__":
